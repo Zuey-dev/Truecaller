@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 STATE_FILE = "ranking_state.json"
 
-load_dotenv(dotenv_path="config.env")  # charger le fichier .env
+load_dotenv(dotenv_path=".\config.env")  # charger le fichier .env
 
 RIOT_API_KEY = os.getenv("RIOT_API_KEY")
 WEBHOOK_URL_GAMES = os.getenv("DISCORD_WEBHOOK_URL_GAMES")
@@ -237,6 +237,65 @@ def get_win_streak(puuid, max_matches=10):
 
     return streak
 
+
+def export_ranking_data():
+    """Exporte les données de classement dans un fichier JSON pour l'interface web"""
+    if not player_ranks:
+        print("Aucun rang disponible, impossible d'exporter les données")
+        return False
+        
+    # Trier les joueurs
+    sorted_players = sorted(
+        player_ranks.items(),
+        key=lambda x: (
+            get_tier_value(x[1]["tier"]),
+            get_rank_value(x[1]["rank"]),
+            x[1]["lp"]
+        ),
+        reverse=True
+    )
+    
+    # Construire les données à exporter
+    export_data = {
+        "updated_at": datetime.datetime.now().isoformat(),
+        "players": []
+    }
+    
+    for i, (player_name, rank_info) in enumerate(sorted_players):
+        # Charger les infos de la winstreak si disponible
+        puuid = None
+        for riot_id in SUMMONERS:
+            if riot_id.split("#")[0] == player_name:
+                puuid = get_puuid_by_riot_id(riot_id)
+                break
+                
+        streak = get_win_streak(puuid) if puuid else 0
+        
+        tier_display = "Fer" if rank_info["tier"] == "IRON" else rank_info["tier"].capitalize()
+        rank_display = "Non classé" if rank_info["tier"] == "UNRANKED" else f"{tier_display} {rank_info['rank']}"
+        
+        player_data = {
+            "name": player_name,
+            "rank": rank_display,
+            "tier": rank_info["tier"],
+            "division": rank_info["rank"],
+            "lp": rank_info["lp"],
+            "win_streak": streak,
+            "position": i + 1  # Classement (1er, 2ème, etc.)
+        }
+        
+        export_data["players"].append(player_data)
+    
+    # Sauvegarder dans le dossier web
+    try:
+        with open("../web/ranking.json", "w", encoding="utf-8") as f:
+            json.dump(export_data, f, ensure_ascii=False, indent=2)
+        print("Données de classement exportées pour l'interface web")
+        return True
+    except Exception as e:
+        print(f"Erreur lors de l'exportation des données: {e}")
+        return False
+
 def load_ranking_state():
     if not os.path.exists(STATE_FILE):
         return {"message_id": None, "last_sent": None}
@@ -260,6 +319,8 @@ def send_ranking():
     if not player_ranks:
         print("Aucun rang disponible, impossible d'envoyer le classement")
         return
+
+    export_ranking_data()
 
     # Chargement état précédent (message_id et timestamp)
     state = load_ranking_state()

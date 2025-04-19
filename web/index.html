@@ -1,52 +1,171 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Classement LOL</title>
-  <style>
-    body {
-      background-color: #111;
-      color: #eee;
-      font-family: 'Segoe UI', sans-serif;
-      padding: 2rem;
-    }
-    .card {
-      background-color: #1c1c1c;
-      border-radius: 1rem;
-      padding: 1rem 2rem;
-      margin-bottom: 1.5rem;
-      box-shadow: 0 0 10px #000;
-    }
-    h1 {
-      color: #57F287;
-    }
-    .player {
-      margin-bottom: 0.75rem;
-    }
-    .emoji {
-      font-size: 1.2rem;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classement League of Legends</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
+    <style>
+        .rank-icon {
+            width: 32px;
+            height: 32px;
+        }
+        
+        .rank-IRON { color: #5D5D5D; }
+        .rank-BRONZE { color: #CD7F32; }
+        .rank-SILVER { color: #C0C0C0; }
+        .rank-GOLD { color: #FFD700; }
+        .rank-PLATINUM { color: #4CA09B; }
+        .rank-DIAMOND { color: #A9C4EB; }
+        .rank-MASTER { color: #9370DB; }
+        .rank-GRANDMASTER { color: #FF4500; }
+        .rank-CHALLENGER { color: #00BFFF; }
+        .rank-UNRANKED { color: #888888; }
+        
+        .bg-card {
+            background-color: #2E3440;
+        }
+        
+        body {
+            background-color: #1A202C;
+            color: #E2E8F0;
+        }
+    </style>
 </head>
-<body>
-  <h1>🏆 Classement des joueurs</h1>
-  <div id="ranking" class="card">Chargement...</div>
-
-  <script>
-    fetch('ranking.json')
-      .then(res => res.json())
-      .then(data => {
-        const container = document.getElementById('ranking');
-        container.innerHTML = '';
-        data.forEach(player => {
-          const div = document.createElement('div');
-          div.className = 'player';
-          div.innerHTML = `${player.medal} <span class="emoji">${player.emoji}</span> <strong>${player.name}</strong> - ${player.rank}`;
-          container.appendChild(div);
-        });
-      });
-  </script>
+<body class="min-h-screen py-10">
+    <div class="container mx-auto px-4">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-bold mb-2">Classement League of Legends</h1>
+            <p id="last-update" class="text-gray-400">Dernière mise à jour: chargement...</p>
+        </header>
+        
+        <div class="max-w-3xl mx-auto">
+            <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+                <div class="p-6">
+                    <h2 class="text-2xl font-bold mb-4 text-center">🏆 Classement</h2>
+                    <div id="loading" class="text-center py-8">
+                        <p>Chargement des données...</p>
+                    </div>
+                    <div id="ranking-table" class="hidden">
+                        <!-- Le tableau sera inséré ici par JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Fonction pour formater la date
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const options = { 
+                day: '2-digit', 
+                month: '2-digit', 
+                year: 'numeric', 
+                hour: '2-digit', 
+                minute: '2-digit',
+                second: '2-digit'
+            };
+            return date.toLocaleDateString('fr-FR', options);
+        }
+        
+        // Fonction pour obtenir l'emoji du classement
+        function getRankEmoji(position) {
+            switch(position) {
+                case 1: return "🥇";
+                case 2: return "🥈";
+                case 3: return "🥉";
+                default: return "🏅";
+            }
+        }
+        
+        // Fonction pour obtenir l'icône du rang
+        function getRankIcon(tier) {
+            return `<span class="rank-${tier} font-bold">${tier.charAt(0)}</span>`;
+        }
+        
+        // Fonction pour charger les données
+        async function loadRankingData() {
+            try {
+                const response = await fetch('ranking.json');
+                if (!response.ok) {
+                    throw new Error('Erreur lors du chargement des données');
+                }
+                
+                const data = await response.json();
+                displayRanking(data);
+            } catch (error) {
+                console.error('Erreur:', error);
+                document.getElementById('loading').innerHTML = `
+                    <div class="bg-red-600 text-white p-4 rounded">
+                        Erreur de chargement des données. Veuillez réessayer plus tard.
+                    </div>
+                `;
+            }
+        }
+        
+        // Fonction pour afficher le classement
+        function displayRanking(data) {
+            const lastUpdateElement = document.getElementById('last-update');
+            const rankingTableElement = document.getElementById('ranking-table');
+            const loadingElement = document.getElementById('loading');
+            
+            // Mettre à jour la date de dernière mise à jour
+            lastUpdateElement.textContent = `Dernière mise à jour: ${formatDate(data.updated_at)}`;
+            
+            // Générer le HTML pour le tableau
+            let tableHTML = `
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b border-gray-700">
+                                <th class="px-4 py-2 text-left">#</th>
+                                <th class="px-4 py-2 text-left">Joueur</th>
+                                <th class="px-4 py-2 text-left">Rang</th>
+                                <th class="px-4 py-2 text-center">LP</th>
+                                <th class="px-4 py-2 text-center">Streak</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            // Ajouter chaque joueur au tableau
+            data.players.forEach(player => {
+                const rankEmoji = getRankEmoji(player.position);
+                const rankIcon = getRankIcon(player.tier);
+                const winStreakText = player.win_streak > 1 ? 
+                    `🔥 ${player.win_streak} win${player.win_streak > 1 ? 's' : ''}` : '-';
+                
+                tableHTML += `
+                    <tr class="border-b border-gray-700 hover:bg-gray-700">
+                        <td class="px-4 py-4 text-left">${rankEmoji} ${player.position}</td>
+                        <td class="px-4 py-4 text-left font-medium">${player.name}</td>
+                        <td class="px-4 py-4 text-left">
+                            <span class="rank-${player.tier}">${rankIcon} ${player.rank}</span>
+                        </td>
+                        <td class="px-4 py-4 text-center">${player.lp}</td>
+                        <td class="px-4 py-4 text-center">${winStreakText}</td>
+                    </tr>
+                `;
+            });
+            
+            tableHTML += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            // Afficher le tableau et masquer le chargement
+            rankingTableElement.innerHTML = tableHTML;
+            rankingTableElement.classList.remove('hidden');
+            loadingElement.classList.add('hidden');
+        }
+        
+        // Charger les données au chargement de la page
+        document.addEventListener('DOMContentLoaded', loadRankingData);
+        
+        // Rafraîchir les données toutes les 5 minutes
+        setInterval(loadRankingData, 5 * 60 * 1000);
+    </script>
 </body>
 </html>
