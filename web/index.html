@@ -1,0 +1,52 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Classement LOL</title>
+  <style>
+    body {
+      background-color: #111;
+      color: #eee;
+      font-family: 'Segoe UI', sans-serif;
+      padding: 2rem;
+    }
+    .card {
+      background-color: #1c1c1c;
+      border-radius: 1rem;
+      padding: 1rem 2rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 0 10px #000;
+    }
+    h1 {
+      color: #57F287;
+    }
+    .player {
+      margin-bottom: 0.75rem;
+    }
+    .emoji {
+      font-size: 1.2rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>🏆 Classement des joueurs</h1>
+  <div id="ranking" class="card">Chargement...</div>
+
+  <script>
+    fetch('ranking.json')
+      .then(res => res.json())
+      .then(data => {
+        const container = document.getElementById('ranking');
+        container.innerHTML = '';
+        data.forEach(player => {
+          const div = document.createElement('div');
+          div.className = 'player';
+          div.innerHTML = `${player.medal} <span class="emoji">${player.emoji}</span> <strong>${player.name}</strong> - ${player.rank}`;
+          container.appendChild(div);
+        });
+      });
+  </script>
+</body>
+</html>
