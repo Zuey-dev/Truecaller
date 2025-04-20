@@ -58,9 +58,22 @@
       "timestamp": 1745159600,
       "champion_icon": "https://ddragon.leagueoflegends.com/cdn/14.8.1/img/champion/Galio.png",
       "match_id": "EUW1_7374631043"
+    },
+    "DZ De Norvège": {
+      "champion": "Olaf",
+      "kills": 3,
+      "deaths": 14,
+      "assists": 5,
+      "win": false,
+      "kda": "0.57",
+      "cs": 130,
+      "damage": 17636,
+      "timestamp": 1745159608,
+      "champion_icon": "https://ddragon.leagueoflegends.com/cdn/14.8.1/img/champion/Olaf.png",
+      "match_id": "EUW1_7374631043"
     }
   },
-  "updated_at": 1745159600,
+  "updated_at": 1745159611,
   "lp_history": {
     "sinistre": [
       {
