@@ -104,17 +104,17 @@
         </div>
     
     <script>
-        // Mapping des emojis personnalisés vers les URLs des images
+        // Modifiez le mapping des emojis pour qu'il fonctionne sur GitHub Pages
         const emojiImages = {
-            "iron": "/img/iron.png",
-            "bronze": "/img/bronze.png",
-            "silver": "/img/silver.png",
-            "gold": "/img/gold.png",
-            "platinum": "/img/platinum.png",
-            "diamond": "/img/diamond.png",
-            "master": "/img/master.png",
-            "grandmaster": "/img/grandmaster.png",
-            "challenger": "/img/challenger.png"
+            "iron": "./img/iron.png",
+            "bronze": "./img/bronze.png",
+            "silver": "./img/silver.png",
+            "gold": "./img/gold.png",
+            "platinum": "./img/platinum.png",
+            "diamond": "./img/diamond.png",
+            "master": "./img/master.png",
+            "grandmaster": "./img/grandmaster.png",
+            "challenger": "./img/challenger.png"
         };
 
         // Fonction pour formater la date
@@ -143,10 +143,10 @@
         async function loadRankingData() {
             console.log("Refresh button clicked, loading data..."); // Debugging line
             try {
-                // Essayer d'abord l'URL GitHub Pages si disponible
+                // Remplacez "username" par votre nom d'utilisateur GitHub réel
                 let response;
                 try {
-                    response = await fetch('https://username.github.io/lol-bot-discord/ranking.json?timestamp=' + new Date().getTime());
+                    response = await fetch('https://Zuey-dev.github.io/lol-bot-discord/ranking.json?timestamp=' + new Date().getTime());
                     if (!response.ok) {
                         throw new Error('GitHub Pages non disponible');
                     }
