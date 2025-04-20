@@ -143,12 +143,12 @@
         async function loadRankingData() {
             console.log("Refresh button clicked, loading data..."); // Debugging line
             try {
-                // Remplacez "username" par votre nom d'utilisateur GitHub réel
+                // Remplacez par l'URL de votre service Render
                 let response;
                 try {
-                    response = await fetch('https://Zuey-dev.github.io/lol-bot-discord/ranking.json?timestamp=' + new Date().getTime());
+                    response = await fetch('https://Truecaller.onrender.com/ranking.json?timestamp=' + new Date().getTime());
                     if (!response.ok) {
-                        throw new Error('GitHub Pages non disponible');
+                        throw new Error('Render service non disponible');
                     }
                 } catch (e) {
                     // Fallback sur le fichier local
