@@ -7,8 +7,10 @@ import threading
 from dotenv import load_dotenv
 
 STATE_FILE = "ranking_state.json"
+last_games_info = {}
+LAST_MATCHES_FILE = "last_matches.json"
 
-load_dotenv(dotenv_path=".\config.env")  # charger le fichier .env
+load_dotenv(dotenv_path="./config.env")  # Use forward slashes or raw string
 
 RIOT_API_KEY = os.getenv("RIOT_API_KEY")
 WEBHOOK_URL_GAMES = os.getenv("DISCORD_WEBHOOK_URL_GAMES")
@@ -51,6 +53,43 @@ last_matches = {}
 player_ranks = {}
 # Timestamp du dernier envoi de classement
 last_ranking_sent = None
+
+def check_riot_key_validity(api_key):
+    """Vérifie si la clé Riot est valide."""
+    url = "https://euw1.api.riotgames.com/lol/status/v4/platform-data"
+    headers = {"X-Riot-Token": api_key}
+    response = requests.get(url, headers=headers)
+    return response.status_code == 200
+
+def update_riot_key(new_key):
+    """Met à jour la clé Riot dans le fichier config.env."""
+    with open("config.env", "r") as file:
+        lines = file.readlines()
+
+    with open("config.env", "w") as file:
+        for line in lines:
+            if line.startswith("RIOT_API_KEY="):
+                file.write(f"RIOT_API_KEY={new_key}\n")
+            else:
+                file.write(line)
+
+def riot_key_manager():
+    """Gère la vérification et la mise à jour de la clé Riot."""
+    while True:
+        load_dotenv(dotenv_path="./config.env")
+        current_key = os.getenv("RIOT_API_KEY")
+
+        if not check_riot_key_validity(current_key):
+            print("La clé Riot actuelle est invalide ou expirée.")
+            # Remplacez cette ligne par le code pour obtenir une nouvelle clé
+            new_key = input("Veuillez entrer la nouvelle clé Riot : ")
+            update_riot_key(new_key)
+            print("La clé Riot a été mise à jour.")
+        else:
+            print("La clé Riot actuelle est toujours valide.")
+
+        # Vérifier toutes les 24 heures
+        time.sleep(86400)  # 24 * 60 * 60 secondes
 
 def get_puuid_by_riot_id(riot_id):
     try:
@@ -237,7 +276,6 @@ def get_win_streak(puuid, max_matches=10):
 
     return streak
 
-
 def export_ranking_data():
     """Exporte les données de classement dans un fichier JSON pour l'interface web"""
     if not player_ranks:
@@ -255,13 +293,37 @@ def export_ranking_data():
         reverse=True
     )
     
-    # Construire les données à exporter
+    # Construire les données à exporter pour le site web
     export_data = {
-        "updated_at": datetime.datetime.now().isoformat(),
-        "players": []
+        "rankings": [],
+        "last_games": last_games_info,
+        "updated_at": int(time.time())
     }
     
+    # Charger l'historique des LP s'il existe
+    lp_history = {}
+    try:
+        if os.path.exists("lp_history.json"):
+            with open("lp_history.json", "r", encoding="utf-8") as f:
+                lp_history = json.load(f)
+    except Exception as e:
+        print(f"Erreur lors du chargement de l'historique LP: {e}")
+        lp_history = {}
+    
+    # Date du jour au format YYYY-MM-DD
+    today = time.strftime("%Y-%m-%d")
+    
     for i, (player_name, rank_info) in enumerate(sorted_players):
+        # Définir la médaille en fonction du rang
+        medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else f"{i+1}"
+        
+        # Obtenir l'emoji du rang
+        emoji = RANK_EMOJIS.get(rank_info["tier"], "")
+        
+        # Formater l'affichage du rang
+        tier_display = "Fer" if rank_info["tier"] == "IRON" else rank_info["tier"].capitalize()
+        rank_display = "Non classé" if rank_info["tier"] == "UNRANKED" else f"{tier_display} {rank_info['rank']} - {rank_info['lp']} LP"
+        
         # Charger les infos de la winstreak si disponible
         puuid = None
         for riot_id in SUMMONERS:
@@ -271,30 +333,64 @@ def export_ranking_data():
                 
         streak = get_win_streak(puuid) if puuid else 0
         
-        tier_display = "Fer" if rank_info["tier"] == "IRON" else rank_info["tier"].capitalize()
-        rank_display = "Non classé" if rank_info["tier"] == "UNRANKED" else f"{tier_display} {rank_info['rank']}"
+        # Mettre à jour l'historique des LP pour ce joueur
+        if player_name not in lp_history:
+            lp_history[player_name] = []
+        
+        # Vérifier si nous avons déjà une entrée pour aujourd'hui
+        today_entry = next((entry for entry in lp_history[player_name] if entry["date"] == today), None)
+        
+        if today_entry:
+            # Mettre à jour l'entrée existante
+            today_entry["lp"] = rank_info["lp"]
+        else:
+            # Ajouter une nouvelle entrée
+            lp_history[player_name].append({
+                "date": today,
+                "lp": rank_info["lp"]
+            })
+        
+        # Limiter l'historique à 30 jours
+        lp_history[player_name] = lp_history[player_name][-30:]
         
         player_data = {
             "name": player_name,
             "rank": rank_display,
             "tier": rank_info["tier"],
+            "emoji": emoji,
+            "medal": medal,
             "division": rank_info["rank"],
             "lp": rank_info["lp"],
             "win_streak": streak,
             "position": i + 1  # Classement (1er, 2ème, etc.)
         }
         
-        export_data["players"].append(player_data)
+        export_data["rankings"].append(player_data)
     
-    # Sauvegarder dans le dossier web
+    # Ajouter l'historique des LP aux données exportées
+    export_data["lp_history"] = lp_history
+    
+    # Sauvegarder l'historique des LP
     try:
-        with open("../web/ranking.json", "w", encoding="utf-8") as f:
-            json.dump(export_data, f, ensure_ascii=False, indent=2)
-        print("Données de classement exportées pour l'interface web")
-        return True
+        with open("lp_history.json", "w", encoding="utf-8") as f:
+            json.dump(lp_history, f, ensure_ascii=False, indent=2)
     except Exception as e:
-        print(f"Erreur lors de l'exportation des données: {e}")
-        return False
+        print(f"Erreur lors de la sauvegarde de l'historique LP: {e}")
+
+    # Sauvegarder à la fois dans le répertoire principal et dans le répertoire web
+    json_paths = ["ranking.json", "web/ranking.json"]
+    success = True
+    
+    for json_path in json_paths:
+        try:
+            with open(json_path, "w", encoding="utf-8") as f:
+                json.dump(export_data, f, ensure_ascii=False, indent=2)
+            print(f"Données exportées dans {json_path}")
+        except Exception as e:
+            print(f"Erreur d'exportation vers {json_path}: {e}")
+            success = False
+            
+    return success
 
 def load_ranking_state():
     if not os.path.exists(STATE_FILE):
@@ -309,6 +405,10 @@ def save_ranking_state(message_id, last_sent):
             "last_sent": int(last_sent.timestamp())
         }, f)
         print("État du classement sauvegardé")
+
+def save_last_matches():
+    with open(LAST_MATCHES_FILE, "w", encoding="utf-8") as f:
+        json.dump(last_matches, f)
 
 def send_ranking():
     """Envoyer ou mettre à jour le classement via embed Discord + historique"""
@@ -341,26 +441,79 @@ def send_ranking():
     now = datetime.datetime.now()
     unix_timestamp = int(now.timestamp())
 
+    # Couleurs pour les rangs
+    rank_colors = {
+        "IRON": 0x5D5D5D,       # Gris foncé
+        "BRONZE": 0x8B4513,     # Marron
+        "SILVER": 0xC0C0C0,     # Argent
+        "GOLD": 0xFFD700,       # Or
+        "PLATINUM": 0x00CED1,   # Turquoise
+        "DIAMOND": 0x1E90FF,    # Bleu clair
+        "MASTER": 0x9932CC,     # Violet
+        "GRANDMASTER": 0xFF4500, # Rouge orangé
+        "CHALLENGER": 0xFFD700,  # Or
+        "UNRANKED": 0x808080    # Gris
+    }
+
+    # Déterminer la couleur de l'embed en fonction du joueur en tête
+    top_player_tier = sorted_players[0][1]["tier"] if sorted_players else "UNRANKED"
+    embed_color = rank_colors.get(top_player_tier, 0x00ffae)
+
     # Embed principal (classement)
     embed_main = {
-        "title": "📊 Classement des joueurs",
-        "description": f"Mis à jour : <t:{unix_timestamp}:R>",
-        "color": 0x00ffae,
+        "title": "🏆 Classement des joueurs",
+        "description": f"Mis à jour <t:{unix_timestamp}:R>\n\n**Classement actuel des invocateurs**",
+        "color": embed_color,
+        "thumbnail": {
+            "url": "https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-mini-regalia/gold.png"
+        },
         "fields": [],
         "footer": {
-            "text": f"Mise à jour du {now.strftime('%d/%m/%Y à %H:%M:%S')}"
+            "text": f"Mise à jour du {now.strftime('%d/%m/%Y à %H:%M:%S')}",
+            "icon_url": "https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-emblem.png"
         }
     }
 
+    # Créer une description stylisée pour chaque joueur
     for i, (player_name, rank_info) in enumerate(sorted_players):
-        medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else "🏅"
-        tier_display = "Fer" if rank_info["tier"] == "IRON" else rank_info["tier"].capitalize()
+        # Médailles pour les 3 premiers, numéro pour les autres
+        position_display = {
+            0: "🥇 **1er**",
+            1: "🥈 **2ème**",
+            2: "🥉 **3ème**"
+        }.get(i, f"**{i+1}.**")
+        
+        # Emoji du rang
         emoji = RANK_EMOJIS.get(rank_info["tier"], "")
-        value = "Non classé" if rank_info["tier"] == "UNRANKED" else f"{tier_display} {rank_info['rank']} - {rank_info['lp']} LP"
-
+        
+        # Formater l'affichage du rang
+        tier_display = "Fer" if rank_info["tier"] == "IRON" else rank_info["tier"].capitalize()
+        rank_display = "Non classé" if rank_info["tier"] == "UNRANKED" else f"{tier_display} {rank_info['rank']}"
+        
+        # Récupérer la winstreak
+        puuid = None
+        for riot_id in SUMMONERS:
+            if riot_id.split("#")[0] == player_name:
+                puuid = get_puuid_by_riot_id(riot_id)
+                break
+        
+        streak = get_win_streak(puuid) if puuid else 0
+        streak_display = f" | 🔥 **{streak} win streak**" if streak > 1 else ""
+        
+        # Créer une barre de progression pour les LP
+        lp_bar_length = 10
+        lp_filled = min(lp_bar_length, int(rank_info["lp"] / 100 * lp_bar_length)) if rank_info["tier"] != "UNRANKED" else 0
+        lp_bar = "▰" * lp_filled + "▱" * (lp_bar_length - lp_filled)
+        
+        # Construire le champ pour ce joueur
+        field_value = (
+            f"{emoji} **{rank_display}** - {rank_info['lp']} LP\n"
+            f"{lp_bar} {streak_display}"
+        )
+        
         embed_main["fields"].append({
-            "name": f"{medal} {player_name}",
-            "value": f"{emoji} {value}",
+            "name": f"{position_display} {player_name}",
+            "value": field_value,
             "inline": False
         })
 
@@ -385,32 +538,73 @@ def send_ranking():
         previous_ranks = {}
 
     embed_history = {
-        "title": "📈 Historique des progressions",
+        "title": "📈 Évolution des joueurs",
         "color": 0x7289da,
+        "description": "Comparaison depuis la dernière mise à jour du classement",
+        "thumbnail": {
+            "url": "https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/challenges-images/progression.png"
+        },
         "fields": [],
         "footer": {
-            "text": "Comparaison depuis la dernière mise à jour"
+            "text": "Suivez la progression de vos invocateurs préférés"
         }
     }
 
+    has_changes = False
     for player_name, rank_info in player_ranks.items():
         previous = previous_ranks.get(player_name)
         if not previous:
             continue
 
         lp_diff = rank_info["lp"] - previous["lp"]
-        rank_changed = rank_info["rank"] != previous["rank"] or rank_info["tier"] != previous["tier"]
+        tier_changed = rank_info["tier"] != previous["tier"]
+        rank_changed = rank_info["rank"] != previous["rank"]
+        
+        # Ne pas afficher les joueurs sans changement
+        if lp_diff == 0 and not tier_changed and not rank_changed:
+            continue
+            
+        has_changes = True
 
-        lp_color = "🟢" if lp_diff > 0 else "🔴" if lp_diff < 0 else "⚪"
+        # Emoji pour la direction du changement
+        direction_emoji = "📈" if lp_diff > 0 else "📉" if lp_diff < 0 else "➖"
+        
+        # Formater l'affichage des LP
         lp_sign = "+" if lp_diff > 0 else ""
-        change_msg = f"{lp_color} {lp_sign}{lp_diff} LP"
-
-        if rank_changed:
-            change_msg += f"\n🔼 {previous['tier'].capitalize()} {previous['rank']} → {rank_info['tier'].capitalize()} {rank_info['rank']}"
-
+        lp_change = f"{direction_emoji} **{lp_sign}{lp_diff} LP**"
+        
+        # Formater l'affichage des rangs
+        old_tier = "Fer" if previous["tier"] == "IRON" else previous["tier"].capitalize()
+        new_tier = "Fer" if rank_info["tier"] == "IRON" else rank_info["tier"].capitalize()
+        
+        old_display = "Non classé" if previous["tier"] == "UNRANKED" else f"{old_tier} {previous['rank']}"
+        new_display = "Non classé" if rank_info["tier"] == "UNRANKED" else f"{new_tier} {rank_info['rank']}"
+        
+        # Emoji pour la promotion/rétrogradation
+        rank_change_emoji = ""
+        if tier_changed or rank_changed:
+            if get_tier_value(rank_info["tier"]) > get_tier_value(previous["tier"]) or \
+               (rank_info["tier"] == previous["tier"] and get_rank_value(rank_info["rank"]) > get_rank_value(previous["rank"])):
+                rank_change_emoji = "🔼"
+            else:
+                rank_change_emoji = "🔽"
+                
+        rank_change_text = f"{rank_change_emoji} **{old_display}** → **{new_display}**" if (tier_changed or rank_changed) else ""
+        
+        # Construire le champ pour ce joueur
+        field_value = f"{lp_change}\n{rank_change_text}" if rank_change_text else lp_change
+        
         embed_history["fields"].append({
             "name": player_name,
-            "value": change_msg,
+            "value": field_value,
+            "inline": True
+        })
+
+    # Si aucun changement, ajouter un message
+    if not has_changes:
+        embed_history["fields"].append({
+            "name": "Aucun changement",
+            "value": "Aucun joueur n'a changé de rang ou de LP depuis la dernière mise à jour.",
             "inline": False
         })
 
@@ -423,7 +617,6 @@ def send_ranking():
             message_id = response.json()["id"]
 
         save_ranking_state(message_id, now)
-        last_ranking_sent = now
 
         with open("last_player_ranks.json", "w") as f:
             json.dump(player_ranks, f)
@@ -453,6 +646,8 @@ def ranking_scheduler():
     """Planificateur pour envoyer le classement toutes les heures"""
     while True:
         send_ranking()
+        # Exporter les données pour le site web également
+        export_ranking_data()
         # Attendre une heure
         time.sleep(1800)  # 30 * 60 secondes = 30 minutes
 
@@ -498,6 +693,12 @@ def track_players():
                     print(f"Impossible d'obtenir les détails du match pour {riot_id}")
                     continue
                 
+                # Récupérer la durée du match
+                game_duration_seconds = match_data["info"]["gameDuration"]
+                game_duration_minutes = game_duration_seconds // 60
+                game_duration_seconds %= 60
+                game_duration_formatted = f"{game_duration_minutes}m {game_duration_seconds}s"
+                
                 # Mettre à jour le rang du joueur APRÈS le match - AVANT de créer l'embed
                 summoner_id = get_summoner_id_by_puuid(puuid)
                 if summoner_id:
@@ -536,16 +737,39 @@ def track_players():
                         embed = {
                             "embeds": [
                                 {
-                                    "title": f"{player_name} a terminé une partie !",
-                                    "color": 0xFF4C4C if not win else 0x57F287,  # Rouge si défaite, vert si win
+                                    "title": f"🎮 {player_name} a terminé une partie !",
+                                    "color": 0x57F287 if win else 0xFF4C4C,  # Vert si victoire, rouge si défaite
                                     "thumbnail": {"url": champion_icon_url},
+                                    "description": f"**{champ}** | {game_duration_formatted} de jeu",
                                     "fields": [
-                                        {"name": "Résultat", "value": "✅ **Victoire**" if win else "❌ **Défaite**", "inline": True},
-                                        {"name": "Champion", "value": champ, "inline": True},
-                                        {"name": "KDA / CS", "value": f"{kills}/{deaths}/{assists} ({kda_formatted}) — {p['totalMinionsKilled'] + p['neutralMinionsKilled']} CS <:minion:1363261808538026166>", "inline": False},
-                                        {"name": "Streak 🔥", "value": streak_text, "inline": False},  # Ajout de la streak
-                                        {"name": "Dégâts infligés", "value": f"{p['totalDamageDealtToChampions']:,} ⚔️", "inline": True},
+                                        {
+                                            "name": "Résultat",
+                                            "value": "✅ **VICTOIRE**" if win else "❌ **DÉFAITE**",
+                                            "inline": True
+                                        },
+                                        {
+                                            "name": "KDA",
+                                            "value": f"**{kills}** / **{deaths}** / **{assists}**\n*{kda_formatted}* KDA",
+                                            "inline": True
+                                        },
+                                        {
+                                            "name": "Farm & Dégâts",
+                                            "value": f"🧟 **{p['totalMinionsKilled'] + p['neutralMinionsKilled']}** CS\n⚔️ **{p['totalDamageDealtToChampions']:,}** dégâts",
+                                            "inline": True
+                                        },
+                                        {
+                                            "name": "Statistiques supplémentaires",
+                                            "value": (
+                                                f"🏆 **{p['doubleKills']}** Double | **{p['tripleKills']}** Triple | **{p['quadraKills']}** Quadra | **{p['pentaKills']}** Penta\n"
+                                                f"👁️ **{p['visionScore']}** Score de vision | 🛡️ **{p['totalDamageTaken']:,}** Dégâts subis"
+                                            ),
+                                            "inline": False
+                                        }
                                     ],
+                                    "footer": {
+                                        "text": f"Match ID: {latest_match.split('_')[1]}",
+                                        "icon_url": "https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-mini-regalia/gold.png"
+                                    },
                                     "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
                                 }
                             ]
@@ -553,38 +777,60 @@ def track_players():
 
                         # Ajouter le champ LP si les infos d'avant et après sont disponibles
                         if previous_rank_info and rank_info:
-                            old_tier = previous_rank_info["tier"].capitalize().replace("Unranked", "Non classé")
+                            # Récupérer les informations de rang
+                            old_tier = "Fer" if previous_rank_info["tier"] == "IRON" else previous_rank_info["tier"].capitalize()
                             old_rank = previous_rank_info["rank"]
                             old_lp = previous_rank_info["lp"]
-
-                            new_tier = rank_info["tier"].capitalize().replace("Unranked", "Non classé")
+                            
+                            new_tier = "Fer" if rank_info["tier"] == "IRON" else rank_info["tier"].capitalize()
                             new_rank = rank_info["rank"]
                             new_lp = rank_info["lp"]
-
+                            
+                            # Récupérer les emojis de rang
+                            old_rank_emoji = RANK_EMOJIS.get(previous_rank_info["tier"], "")
+                            new_rank_emoji = RANK_EMOJIS.get(rank_info["tier"], "")
+                            
+                            # Créer les barres de progression LP
+                            lp_bar_length = 10
+                            old_lp_filled = min(lp_bar_length, int(old_lp / 100 * lp_bar_length))
+                            old_lp_bar = "▰" * old_lp_filled + "▱" * (lp_bar_length - old_lp_filled)
+                            
+                            new_lp_filled = min(lp_bar_length, int(new_lp / 100 * lp_bar_length))
+                            new_lp_bar = "▰" * new_lp_filled + "▱" * (lp_bar_length - new_lp_filled)
+                            
+                            # Emoji pour la direction du changement
                             lp_diff = new_lp - old_lp
-                            lp_sign = "+" if lp_diff >= 0 else ""
                             lp_emoji = "📈" if lp_diff > 0 else "📉" if lp_diff < 0 else "➖"
-
-                            tier_changed = old_tier != new_tier
-                            rank_changed = old_rank != new_rank
+                            lp_sign = "+" if lp_diff > 0 else ""
+                            
+                            # Emoji pour la promotion/rétrogradation
                             tier_move_emoji = ""
-
-                            if tier_changed or rank_changed:
+                            if rank_info["tier"] != previous_rank_info["tier"] or rank_info["rank"] != previous_rank_info["rank"]:
                                 if get_tier_value(rank_info["tier"]) > get_tier_value(previous_rank_info["tier"]) or \
                                    (rank_info["tier"] == previous_rank_info["tier"] and get_rank_value(rank_info["rank"]) > get_rank_value(previous_rank_info["rank"])):
-                                    tier_move_emoji = " 🆙"
-                                elif get_tier_value(rank_info["tier"]) < get_tier_value(previous_rank_info["tier"]) or \
-                                     (rank_info["tier"] == previous_rank_info["tier"] and get_rank_value(rank_info["rank"]) < get_rank_value(previous_rank_info["rank"])):
-                                    tier_move_emoji = " 🪂"
+                                    tier_move_emoji = " 🔼"
+                                else:
+                                    tier_move_emoji = " 🔽"
 
                             lp_field = {
-                                "name": "Évolution LP 📊",
-                                "value": f"{lp_emoji} {lp_sign}{lp_diff} LP\n{old_tier} {old_rank} {old_lp} LP → {new_tier} {new_rank} {new_lp} LP{tier_move_emoji}",
+                                "name": "📊 Évolution du rang",
+                                "value": (
+                                    f"{lp_emoji} **{lp_sign}{lp_diff} LP**{tier_move_emoji}\n"
+                                    f"**Avant:** {old_tier} {old_rank} - {old_lp} LP {old_rank_emoji}\n{old_lp_bar}\n"
+                                    f"**Après:** {new_tier} {new_rank} - {new_lp} LP {new_rank_emoji}\n{new_lp_bar}"
+                                ),
                                 "inline": False
                             }
 
-
-                            embed["embeds"][0]["fields"].append(lp_field)
+                            # Insérer le champ LP en deuxième position (après le résultat)
+                            embed["embeds"][0]["fields"].insert(3, lp_field)
+                            
+                            # Ajouter l'image du rang dans l'embed
+                            tier_lowercase = rank_info["tier"].lower()
+                            if tier_lowercase != "unranked":
+                                embed["embeds"][0]["image"] = {
+                                    "url": f"https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-mini-crests/{tier_lowercase}.png"
+                                }
 
                         # Envoyer au webhook
                         response = requests.post(WEBHOOK_URL_GAMES, json=embed)
@@ -594,7 +840,24 @@ def track_players():
                         else:
                             print(f"Erreur lors de l'envoi de l'embed de partie : {response.status_code}, {response.text}")
                         
-                        # Mettre à jour le dernier match
+                        last_games_info[player_name] = {
+                            "champion": champ,
+                            "kills": kills,
+                            "deaths": deaths,
+                            "assists": assists,
+                            "win": win,
+                            "kda": kda_formatted,
+                            "cs": p['totalMinionsKilled'] + p['neutralMinionsKilled'],
+                            "damage": p['totalDamageDealtToChampions'],
+                            "timestamp": int(time.time()),
+                            "champion_icon": champion_icon_url,
+                            "match_id": latest_match
+                        }
+
+                        # ✅ Exporter le classement mis à jour
+                        export_ranking_data()
+
+                        # 🔄 Mise à jour du match
                         last_matches[riot_id] = latest_match
                         break
                 
@@ -607,18 +870,21 @@ def track_players():
         print("Attente avant prochaine vérification...")
         time.sleep(120)  # vérifie toutes les 60 secondes
 
-
 if __name__ == "__main__":
     print("Bot lancé...")
-    
+
     # Initialiser les rangs des joueurs au démarrage
     print("Initialisation des rangs des joueurs...")
     update_player_ranks()
     print("Rangs initialisés")
-    
+
     # Démarrer le planificateur de classement dans un thread séparé
     ranking_thread = threading.Thread(target=ranking_scheduler, daemon=True)
     ranking_thread.start()
-    
+
+    # Démarrer le gestionnaire de clé Riot dans un thread séparé
+    riot_key_thread = threading.Thread(target=riot_key_manager, daemon=True)
+    riot_key_thread.start()
+
     # Démarrer le suivi des joueurs dans le thread principal
     track_players()

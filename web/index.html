@@ -3,14 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Classement League of Legends</title>
+    <title>Truecaller</title>
+    <link rel="icon" href="img/maxresdefault.png" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
+    <!-- Ajout de Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        .rank-icon {
-            width: 32px;
-            height: 32px;
-        }
-        
         .rank-IRON { color: #5D5D5D; }
         .rank-BRONZE { color: #CD7F32; }
         .rank-SILVER { color: #C0C0C0; }
@@ -22,25 +20,64 @@
         .rank-CHALLENGER { color: #00BFFF; }
         .rank-UNRANKED { color: #888888; }
         
-        .bg-card {
-            background-color: #2E3440;
-        }
-        
         body {
             background-color: #1A202C;
             color: #E2E8F0;
+        }
+
+        .game-card {
+            background-color: #2D3748;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            margin-bottom: 1rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .game-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .game-win {
+            border-left: 4px solid #48BB78;
+        }
+
+        .game-loss {
+            border-left: 4px solid #F56565;
+        }
+
+        .refresh-button {
+            background-color: #3182CE;
+            color: #E2E8F0;
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .refresh-button:hover {
+            background-color: #2B6CB0;
+        }
+        
+        /* Style pour les graphiques */
+        .chart-container {
+            position: relative;
+            height: 250px;
+            width: 100%;
+            margin-bottom: 1.5rem;
         }
     </style>
 </head>
 <body class="min-h-screen py-10">
     <div class="container mx-auto px-4">
         <header class="text-center mb-10">
-            <h1 class="text-4xl font-bold mb-2">Classement League of Legends</h1>
-            <p id="last-update" class="text-gray-400">Dernière mise à jour: chargement...</p>
+            <h1 class="text-4xl font-bold mb-2">Truecaller 📢</h1>
+            <p id="last-update" class="text-gray-400">Dernière mise à jour: <span id="update-time"></span></p>
+            <button class="refresh-button mt-4" onclick="loadRankingData()">🔄 Rafraîchir</button>
         </header>
         
         <div class="max-w-3xl mx-auto">
-            <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+            <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden mb-8">
                 <div class="p-6">
                     <h2 class="text-2xl font-bold mb-4 text-center">🏆 Classement</h2>
                     <div id="loading" class="text-center py-8">
@@ -51,49 +88,82 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Section des dernières parties -->
+            <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+                <div class="p-6">
+                    <h2 class="text-2xl font-bold mb-4 text-center">🎮 Dernières parties</h2>
+                    <div id="last-games-loading" class="text-center py-8">
+                        <p>Chargement des parties...</p>
+                    </div>
+                    <div id="last-games" class="hidden grid grid-cols-1 gap-4">
+                        <!-- Les cartes des dernières parties seront insérées ici -->
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
     
     <script>
+        // Mapping des emojis personnalisés vers les URLs des images
+        const emojiImages = {
+            "iron": "/img/iron.png",
+            "bronze": "/img/bronze.png",
+            "silver": "/img/silver.png",
+            "gold": "/img/gold.png",
+            "platinum": "/img/platinum.png",
+            "diamond": "/img/diamond.png",
+            "master": "/img/master.png",
+            "grandmaster": "/img/grandmaster.png",
+            "challenger": "/img/challenger.png"
+        };
+
         // Fonction pour formater la date
-        function formatDate(dateString) {
-            const date = new Date(dateString);
-            const options = { 
-                day: '2-digit', 
-                month: '2-digit', 
-                year: 'numeric', 
-                hour: '2-digit', 
-                minute: '2-digit',
-                second: '2-digit'
-            };
-            return date.toLocaleDateString('fr-FR', options);
+        function formatTimestamp(timestamp) {
+            const date = new Date(timestamp * 1000);
+            return date.toLocaleString('fr-FR');
         }
-        
-        // Fonction pour obtenir l'emoji du classement
-        function getRankEmoji(position) {
-            switch(position) {
-                case 1: return "🥇";
-                case 2: return "🥈";
-                case 3: return "🥉";
-                default: return "🏅";
-            }
-        }
-        
-        // Fonction pour obtenir l'icône du rang
-        function getRankIcon(tier) {
-            return `<span class="rank-${tier} font-bold">${tier.charAt(0)}</span>`;
+
+        // Fonction pour calculer le temps écoulé
+        function timeAgo(timestamp) {
+            const seconds = Math.floor((Date.now() / 1000) - timestamp);
+            
+            if (seconds < 60) return `Il y a quelques secondes`;
+            
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `Il y a ${minutes} minute${minutes > 1 ? 's' : ''}`;
+            
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `Il y a ${hours} heure${hours > 1 ? 's' : ''}`;
+            
+            const days = Math.floor(hours / 24);
+            return `Il y a ${days} jour${days > 1 ? 's' : ''}`;
         }
         
         // Fonction pour charger les données
         async function loadRankingData() {
+            console.log("Refresh button clicked, loading data..."); // Debugging line
             try {
-                const response = await fetch('ranking.json');
+                const response = await fetch('ranking.json?timestamp=' + new Date().getTime());
                 if (!response.ok) {
                     throw new Error('Erreur lors du chargement des données');
                 }
                 
                 const data = await response.json();
-                displayRanking(data);
+                console.log("Fetched data:", data); // Debugging line
+                
+                // Check if updated_at is a valid timestamp
+                if (data.updated_at) {
+                    console.log("Updated at:", new Date(data.updated_at * 1000).toLocaleString('fr-FR')); // Debugging line
+                    document.getElementById('update-time').textContent = new Date(data.updated_at * 1000).toLocaleString('fr-FR');
+                } else {
+                    console.error("Invalid updated_at timestamp");
+                }
+                
+                // Afficher le classement
+                displayRanking(data.rankings);
+                
+                // Afficher les dernières parties
+                displayLastGames(data.last_games, data.rankings);
             } catch (error) {
                 console.error('Erreur:', error);
                 document.getElementById('loading').innerHTML = `
@@ -101,17 +171,32 @@
                         Erreur de chargement des données. Veuillez réessayer plus tard.
                     </div>
                 `;
+                document.getElementById('last-games-loading').innerHTML = `
+                    <div class="bg-red-600 text-white p-4 rounded">
+                        Erreur de chargement des données. Veuillez réessayer plus tard.
+                    </div>
+                `;
             }
         }
         
+        // Fonction pour obtenir la couleur du rang
+        function getRankColor(rankText) {
+            if (rankText.includes("Fer")) return "rank-IRON";
+            if (rankText.includes("Bronze")) return "rank-BRONZE";
+            if (rankText.includes("Silver") || rankText.includes("Argent")) return "rank-SILVER";
+            if (rankText.includes("Gold") || rankText.includes("Or")) return "rank-GOLD";
+            if (rankText.includes("Platinum") || rankText.includes("Platine")) return "rank-PLATINUM";
+            if (rankText.includes("Diamond") || rankText.includes("Diamant")) return "rank-DIAMOND";
+            if (rankText.includes("Master")) return "rank-MASTER";
+            if (rankText.includes("Grandmaster")) return "rank-GRANDMASTER";
+            if (rankText.includes("Challenger")) return "rank-CHALLENGER";
+            return "rank-UNRANKED";
+        }
+        
         // Fonction pour afficher le classement
-        function displayRanking(data) {
-            const lastUpdateElement = document.getElementById('last-update');
+        function displayRanking(players) {
             const rankingTableElement = document.getElementById('ranking-table');
             const loadingElement = document.getElementById('loading');
-            
-            // Mettre à jour la date de dernière mise à jour
-            lastUpdateElement.textContent = `Dernière mise à jour: ${formatDate(data.updated_at)}`;
             
             // Générer le HTML pour le tableau
             let tableHTML = `
@@ -119,32 +204,32 @@
                     <table class="w-full">
                         <thead>
                             <tr class="border-b border-gray-700">
-                                <th class="px-4 py-2 text-left">#</th>
-                                <th class="px-4 py-2 text-left">Joueur</th>
                                 <th class="px-4 py-2 text-left">Rang</th>
-                                <th class="px-4 py-2 text-center">LP</th>
-                                <th class="px-4 py-2 text-center">Streak</th>
+                                <th class="px-4 py-2 text-left">Joueur</th>
+                                <th class="px-4 py-2 text-left">Division</th>
                             </tr>
                         </thead>
                         <tbody>
             `;
             
             // Ajouter chaque joueur au tableau
-            data.players.forEach(player => {
-                const rankEmoji = getRankEmoji(player.position);
-                const rankIcon = getRankIcon(player.tier);
-                const winStreakText = player.win_streak > 1 ? 
-                    `🔥 ${player.win_streak} win${player.win_streak > 1 ? 's' : ''}` : '-';
+            players.forEach(player => {
+                const rankClass = getRankColor(player.rank);
                 
+                // Remplacer l'emoji par une image
+                const emojiName = player.emoji.match(/<:(\w+):/)[1]; // Extraire le nom de l'emoji
+                const emojiImageUrl = emojiImages[emojiName] || ''; // Obtenir l'URL de l'image
+
                 tableHTML += `
                     <tr class="border-b border-gray-700 hover:bg-gray-700">
-                        <td class="px-4 py-4 text-left">${rankEmoji} ${player.position}</td>
+                        <td class="px-4 py-4 text-left">${player.medal}</td>
                         <td class="px-4 py-4 text-left font-medium">${player.name}</td>
                         <td class="px-4 py-4 text-left">
-                            <span class="rank-${player.tier}">${rankIcon} ${player.rank}</span>
+                            <span class="${rankClass}">
+                                <img src="${emojiImageUrl}" alt="${emojiName}" class="inline-block w-6 h-6 mr-1">
+                                ${player.rank}
+                            </span>
                         </td>
-                        <td class="px-4 py-4 text-center">${player.lp}</td>
-                        <td class="px-4 py-4 text-center">${winStreakText}</td>
                     </tr>
                 `;
             });
@@ -161,11 +246,357 @@
             loadingElement.classList.add('hidden');
         }
         
+        // Fonction pour afficher les dernières parties
+        function displayLastGames(games, rankings) {
+            const lastGamesElement = document.getElementById('last-games');
+            const loadingElement = document.getElementById('last-games-loading');
+            
+            if (!games || Object.keys(games).length === 0) {
+                loadingElement.innerHTML = `
+                    <p class="text-yellow-400 text-center">Aucune partie récente trouvée.</p>
+                `;
+                return;
+            }
+            
+            let gamesHTML = '';
+            
+            // Parcourir les parties de chaque joueur
+            for (const [playerName, game] of Object.entries(games)) {
+                const gameClass = game.win ? 'game-win' : 'game-loss';
+                const resultText = game.win ? '✅ Victoire' : '❌ Défaite';
+                const resultColor = game.win ? 'text-green-400' : 'text-red-400';
+                
+                // Ajoutez ici les informations de LP
+                const lpChange = game.lp_change || 0; // Assurez-vous que lp_change est dans vos données
+                const lpSign = lpChange >= 0 ? '+' : '';
+                const lpColor = lpChange > 0 ? 'text-green-400' : lpChange < 0 ? 'text-red-400' : 'text-gray-400';
+                const lpText = lpChange !== 0 ? `${lpSign}${lpChange} LP` : 'Pas de changement de LP';
+
+                // Récupérer la winstreak du joueur
+                const playerRanking = rankings.find(r => r.name === playerName);
+                const winstreak = playerRanking ? playerRanking.win_streak : 0;
+                const winstreakText = winstreak >= 1 ? `${winstreak} victoire(s) de suite ! 🔥` : 'Aucune winstreak...';
+
+                // Générer l'affichage des objets avec leurs images
+                let itemsHTML = '';
+                if (game.items && game.items.length > 0) {
+                    itemsHTML = `
+                        <div class="mt-2">
+                            <p class="text-gray-300 mb-1">Équipement 🛠️</p>
+                            <div class="flex flex-wrap gap-1 justify-center md:justify-end">
+                                ${game.items.map(itemId => {
+                                    if (itemId > 0) {
+                                        return `<img src="https://ddragon.leagueoflegends.com/cdn/14.8.1/img/item/${itemId}.png" alt="Item ${itemId}" class="w-8 h-8 rounded" title="Item ${itemId}">`;
+                                    }
+                                    return '';
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                gamesHTML += `
+                    <div class="game-card ${gameClass} shadow-md flex flex-col md:flex-row items-center">
+                        <div class="p-4 flex items-center">
+                            <img src="${game.champion_icon}" alt="${game.champion}" class="w-16 h-16 rounded-full mr-4">
+                            <div>
+                                <h3 class="font-bold text-lg">${playerName}</h3>
+                                <p class="${resultColor} font-medium">${resultText}</p>
+                                <p class="text-gray-400 text-sm">${timeAgo(game.timestamp)}</p>
+                            </div>
+                        </div>
+                        <div class="p-4 flex-grow text-center md:text-right">
+                            <p class="font-bold">${game.champion}</p>
+                            <p class="text-gray-300">${game.kills}/${game.deaths}/${game.assists} (${game.kda})</p>
+                            <p class="text-gray-400 text-sm">${game.cs} CS • ${game.damage.toLocaleString()} dégâts ⚔️</p>
+                            <p class="${lpColor} font-medium">${lpText}</p>
+                            <p class="text-yellow-400 font-medium">${winstreakText}</p>
+                            ${itemsHTML}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Afficher les parties et masquer le chargement
+            lastGamesElement.innerHTML = gamesHTML;
+            lastGamesElement.classList.remove('hidden');
+            loadingElement.classList.add('hidden');
+        }
+        
         // Charger les données au chargement de la page
-        document.addEventListener('DOMContentLoaded', loadRankingData);
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const response = await fetch('ranking.json?timestamp=' + new Date().getTime());
+                if (!response.ok) {
+                    throw new Error('Erreur lors du chargement des données');
+                }
+                
+                const data = await response.json();
+                
+                // Mettre à jour la date de dernière mise à jour
+                document.getElementById('update-time').textContent = new Date(data.updated_at * 1000).toLocaleString('fr-FR');
+                
+                // Afficher le classement
+                displayRanking(data.rankings);
+                
+                // Afficher les dernières parties
+                displayLastGames(data.last_games, data.rankings);
+                
+                // Initialiser les graphiques dès le chargement initial
+                setupCharts(data);
+            } catch (error) {
+                console.error('Erreur:', error);
+                document.getElementById('loading').innerHTML = `
+                    <div class="bg-red-600 text-white p-4 rounded">
+                        Erreur de chargement des données. Veuillez réessayer plus tard.
+                    </div>
+                `;
+                document.getElementById('last-games-loading').innerHTML = `
+                    <div class="bg-red-600 text-white p-4 rounded">
+                        Erreur de chargement des données. Veuillez réessayer plus tard.
+                    </div>
+                `;
+            }
+        });
         
         // Rafraîchir les données toutes les 5 minutes
         setInterval(loadRankingData, 5 * 60 * 1000);
+
+        // Ajout de la section graphiques
+        function setupCharts(data) {
+            console.log("Setting up charts with data:", data);
+            
+            // Vérifier si la section des graphiques existe déjà, sinon la créer
+            if (!document.getElementById('charts-section')) {
+                const container = document.querySelector('.container.mx-auto.px-4');
+                const chartsSection = document.createElement('div');
+                chartsSection.id = 'charts-section';
+                chartsSection.className = 'max-w-3xl mx-auto mt-8';
+                chartsSection.innerHTML = `
+                    <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+                        <div class="p-6">
+                            <h2 class="text-2xl font-bold mb-4 text-center">📊 Évolution des LP</h2>
+                            <div class="mb-4">
+                                <select id="chart-timeframe" class="bg-gray-700 text-white p-2 rounded">
+                                    <option value="7">7 derniers jours</option>
+                                    <option value="14">14 derniers jours</option>
+                                    <option value="30">30 derniers jours</option>
+                                </select>
+                            </div>
+                            <div class="h-80">
+                                <canvas id="lp-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(chartsSection);
+            }
+
+            // Ajouter l'événement de changement pour le sélecteur de période
+            const timeframeSelect = document.getElementById('chart-timeframe');
+            if (timeframeSelect && !timeframeSelect.hasAttribute('data-initialized')) {
+                timeframeSelect.setAttribute('data-initialized', 'true');
+                timeframeSelect.addEventListener('change', function() {
+                    updateLPChart(parseInt(this.value));
+                });
+            }
+            
+            // Utiliser les données d'historique LP si disponibles, sinon générer des données fictives
+            let lpHistoryData;
+            if (data.lp_history && Object.keys(data.lp_history).length > 0) {
+                console.log("Using real LP history data");
+                lpHistoryData = data.lp_history;
+            } else {
+                console.log("Generating mock LP data");
+                lpHistoryData = generateMockLPData(data.rankings);
+            }
+            
+            // Vérifier si nous avons des données
+            if (Object.keys(lpHistoryData).length === 0) {
+                console.error("No LP history data available");
+                document.getElementById('lp-chart').parentNode.innerHTML = `
+                    <div class="text-center py-4">
+                        <p class="text-yellow-400">Aucune donnée d'historique LP disponible.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Fonction pour mettre à jour le graphique LP
+            window.updateLPChart = function(days = 7) {
+                console.log(`Updating chart with ${days} days of data`);
+                const canvas = document.getElementById('lp-chart');
+                if (!canvas) {
+                    console.error("Canvas element not found");
+                    return;
+                }
+                
+                const ctx = canvas.getContext('2d');
+                
+                // Détruire le graphique existant s'il existe
+                if (window.lpChart) {
+                    window.lpChart.destroy();
+                }
+                
+                // Préparer les données pour le graphique
+                const datasets = [];
+                const colors = [
+                    '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
+                    '#FF9F40', '#8AC249', '#EA5F89', '#00D8B6', '#FFB6C1'
+                ];
+                
+                // Obtenir toutes les dates uniques de tous les joueurs
+                const allDates = new Set();
+                Object.values(lpHistoryData).forEach(playerData => {
+                    playerData.forEach(entry => {
+                        allDates.add(entry.date);
+                    });
+                });
+                
+                // Convertir en tableau et trier
+                const sortedDates = Array.from(allDates).sort();
+                
+                // Limiter aux derniers jours
+                const recentDates = sortedDates.slice(-days);
+                
+                let i = 0;
+                for (const [playerName, playerData] of Object.entries(lpHistoryData)) {
+                    // Créer un mapping date -> LP pour ce joueur
+                    const dateToLP = {};
+                    playerData.forEach(entry => {
+                        dateToLP[entry.date] = entry.lp;
+                    });
+                    
+                    // Créer les données pour le graphique en utilisant les dates récentes
+                    const chartData = recentDates.map(date => {
+                        return dateToLP[date] || null; // null pour les dates sans données
+                    });
+                    
+                    datasets.push({
+                        label: playerName,
+                        data: chartData,
+                        borderColor: colors[i % colors.length],
+                        backgroundColor: colors[i % colors.length] + '33', // Ajouter transparence
+                        tension: 0.3,
+                        fill: false
+                    });
+                    i++;
+                }
+                
+                // Créer le graphique
+                window.lpChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: recentDates,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Developped by Zuey for "Panem 🏹" discord.',
+                                position: 'bottom',
+                                padding: {
+                                    top: 10,
+                                    bottom: 10
+                                },
+                                font: {
+                                    size: 12
+                                },
+                                color: '#9CA3AF'
+                            },
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    color: '#E2E8F0'
+                                }
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false
+                            }
+                        },
+                        scales: {
+                            x: {
+                                ticks: {
+                                    color: '#E2E8F0'
+                                },
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)'
+                                }
+                            },
+                            y: {
+                                ticks: {
+                                    color: '#E2E8F0'
+                                },
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)'
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'LP',
+                                    color: '#E2E8F0'
+                                }
+                            }
+                        }
+                    }
+                });
+            };
+            
+            // Initialiser le graphique avec 7 jours par défaut
+            setTimeout(() => {
+                updateLPChart(7);
+            }, 100);
+        }
+        
+        // Fonction pour générer des données de test pour les graphiques
+        function generateMockLPData(rankings) {
+            const now = new Date();
+            const days = 30; // Générer des données pour 30 jours
+            const players = {};
+            
+            rankings.forEach(player => {
+                const currentLP = player.lp;
+                const data = [];
+                
+                // Générer des données historiques fictives
+                for (let i = days; i >= 0; i--) {
+                    const date = new Date(now);
+                    date.setDate(date.getDate() - i);
+                    
+                    // Variation aléatoire des LP (-20 à +20 par jour)
+                    const variation = Math.floor(Math.random() * 41) - 20;
+                    const lpValue = Math.max(0, currentLP - (variation * (i/2)));
+                    
+                    data.push({
+                        date: date.toISOString().split('T')[0],
+                        lp: Math.round(lpValue)
+                    });
+                }
+                
+                players[player.name] = data;
+            });
+            
+            return players;
+        }
+
+        // Modifier la fonction loadRankingData pour appeler setupCharts
+        const originalLoadRankingData = loadRankingData;
+        loadRankingData = async function() {
+            await originalLoadRankingData();
+            try {
+                const response = await fetch('ranking.json?timestamp=' + new Date().getTime());
+                if (response.ok) {
+                    const data = await response.json();
+                    setupCharts(data); // Passer l'objet data complet, pas seulement rankings
+                }
+            } catch (error) {
+                console.error('Erreur lors du chargement des données pour les graphiques:', error);
+            }
+        };
     </script>
+ 
 </body>
 </html>
