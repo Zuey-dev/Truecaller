@@ -1,2 +1,27 @@
 language = "python3"
+entrypoint = "bot.py"
 run = "python bot.py"
+
+[env]
+PYTHONPATH = "${PYTHONPATH}:${workspaceFolder}"
+
+[nix]
+channel = "stable-22_11"
+
+[packager]
+language = "python3"
+
+[packager.features]
+packageSearch = true
+guessImports = true
+enabledForHosting = false
+
+[unitTest]
+language = "python3"
+
+[languages.python3]
+pattern = "**/*.py"
+syntax = "python"
+
+[languages.python3.languageServer]
+start = "pylsp"
