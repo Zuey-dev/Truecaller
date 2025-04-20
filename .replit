@@ -1,12 +1,12 @@
 language = "python3"
-entrypoint = "bot.py"
 run = "python bot.py"
+modules = ["python-3.8", "web", "nix"]
 
 [env]
 PYTHONPATH = "${PYTHONPATH}:${workspaceFolder}"
 
 [nix]
-channel = "stable-22_11"
+channel = "stable-24_05"
 
 [packager]
 language = "python3"
@@ -26,3 +26,6 @@ syntax = "python"
 
 [languages.python3.languageServer]
 start = "pylsp"
+
+[deployment]
+run = ["sh", "-c", "python bot.py"]
