@@ -58,9 +58,35 @@
       "timestamp": 1745158100,
       "champion_icon": "https://ddragon.leagueoflegends.com/cdn/14.8.1/img/champion/Galio.png",
       "match_id": "EUW1_7374631043"
+    },
+    "DZ De Norvège": {
+      "champion": "Olaf",
+      "kills": 3,
+      "deaths": 14,
+      "assists": 5,
+      "win": false,
+      "kda": "0.57",
+      "cs": 130,
+      "damage": 17636,
+      "timestamp": 1745158109,
+      "champion_icon": "https://ddragon.leagueoflegends.com/cdn/14.8.1/img/champion/Olaf.png",
+      "match_id": "EUW1_7374631043"
+    },
+    "wizaX28": {
+      "champion": "Kindred",
+      "kills": 1,
+      "deaths": 5,
+      "assists": 4,
+      "win": false,
+      "kda": "1.00",
+      "cs": 78,
+      "damage": 5350,
+      "timestamp": 1745158118,
+      "champion_icon": "https://ddragon.leagueoflegends.com/cdn/14.8.1/img/champion/Kindred.png",
+      "match_id": "EUW1_7373573055"
     }
   },
-  "updated_at": 1745158102,
+  "updated_at": 1745158113,
   "lp_history": {
     "sinistre": [
       {
