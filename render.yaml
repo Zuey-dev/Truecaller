@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: lol-bot-web
+    env: static
+    buildCommand: echo "Static site ready"
+    staticPublishPath: ./web
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.0
+
+  - type: worker
+    name: lol-bot-discord
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.0
+      - key: RIOT_API_KEY
+        sync: false
+      - key: WEBHOOK_URL_GAMES
+        sync: false
+      - key: WEBHOOK_URL_RANKING
+        sync: false

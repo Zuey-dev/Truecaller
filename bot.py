@@ -5,6 +5,7 @@ import time
 import datetime
 import threading
 from dotenv import load_dotenv
+from sync_to_github import sync_to_github
 
 STATE_FILE = "ranking_state.json"
 last_games_info = {}
@@ -377,20 +378,22 @@ def export_ranking_data():
     except Exception as e:
         print(f"Erreur lors de la sauvegarde de l'historique LP: {e}")
 
-    # Sauvegarder à la fois dans le répertoire principal et dans le répertoire web
-    json_paths = ["ranking.json", "web/ranking.json"]
-    success = True
-    
-    for json_path in json_paths:
-        try:
-            with open(json_path, "w", encoding="utf-8") as f:
-                json.dump(export_data, f, ensure_ascii=False, indent=2)
-            print(f"Données exportées dans {json_path}")
-        except Exception as e:
-            print(f"Erreur d'exportation vers {json_path}: {e}")
-            success = False
-            
-    return success
+    # Sauvegarder le fichier ranking.json
+    try:
+        # Sauvegarder dans le répertoire principal
+        with open("ranking.json", "w", encoding="utf-8") as f:
+            json.dump(export_data, f, ensure_ascii=False, indent=2)
+        
+        # Sauvegarder dans le répertoire web
+        os.makedirs("web", exist_ok=True)  # S'assurer que le répertoire web existe
+        with open("web/ranking.json", "w", encoding="utf-8") as f:
+            json.dump(export_data, f, ensure_ascii=False, indent=2)
+        
+        print("Données exportées avec succès")
+        return True
+    except Exception as e:
+        print(f"Erreur d'exportation: {e}")
+        return False
 
 def load_ranking_state():
     if not os.path.exists(STATE_FILE):
@@ -421,6 +424,7 @@ def send_ranking():
         return
 
     export_ranking_data()
+    sync_to_github()  # Synchroniser avec GitHub
 
     # Chargement état précédent (message_id et timestamp)
     state = load_ranking_state()
@@ -648,6 +652,7 @@ def ranking_scheduler():
         send_ranking()
         # Exporter les données pour le site web également
         export_ranking_data()
+        sync_to_github()  # Synchroniser avec GitHub
         # Attendre une heure
         time.sleep(1800)  # 30 * 60 secondes = 30 minutes
 
@@ -869,6 +874,49 @@ def track_players():
         
         print("Attente avant prochaine vérification...")
         time.sleep(120)  # vérifie toutes les 60 secondes
+
+def sync_to_github():
+    """Synchronise les fichiers JSON avec le dépôt GitHub"""
+    try:
+        # Vérifier si git est installé
+        subprocess.run(["git", "--version"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        
+        # Fichiers à synchroniser
+        files_to_sync = ["ranking.json", "lp_history.json", "last_player_ranks.json"]
+        
+        # Ajouter les fichiers modifiés
+        subprocess.run(["git", "add"] + files_to_sync, check=True)
+        
+        # Créer un commit avec un message incluant l'horodatage
+        commit_message = f"Mise à jour des données - {time.strftime('%Y-%m-%d %H:%M:%S')}"
+        subprocess.run(["git", "commit", "-m", commit_message], check=True)
+        
+        # Pousser les modifications
+        subprocess.run(["git", "push"], check=True)
+        
+        print("Synchronisation GitHub réussie")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"Erreur lors de la synchronisation GitHub: {e}")
+        return False
+    except Exception as e:
+        print(f"Erreur inattendue lors de la synchronisation GitHub: {e}")
+        return False
+
+def keep_alive():
+    """Fonction pour maintenir le service actif"""
+    while True:
+        try:
+            # Faire une requête à votre propre service web toutes les 14 minutes
+            requests.get("https://lol-bot-discord.onrender.com")
+            print("Service pinged to keep alive")
+        except Exception as e:
+            print(f"Error pinging service: {e}")
+        time.sleep(14 * 60)  # 14 minutes
+
+# Démarrer le thread de maintien en vie
+import threading
+threading.Thread(target=keep_alive, daemon=True).start()
 
 if __name__ == "__main__":
     print("Bot lancé...")
