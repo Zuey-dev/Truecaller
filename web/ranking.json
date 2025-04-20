@@ -2,35 +2,35 @@
   "rankings": [
     {
       "name": "sinistre",
-      "rank": "Silver III - 41 LP",
+      "rank": "Silver III - 16 LP",
       "tier": "SILVER",
       "emoji": "<:silver:1363233675566780576>",
       "medal": "🥇",
       "division": "III",
-      "lp": 41,
+      "lp": 16,
       "win_streak": 0,
       "position": 1
     },
     {
       "name": "midlaner agité",
-      "rank": "Silver III - 20 LP",
+      "rank": "Silver IV - 98 LP",
       "tier": "SILVER",
       "emoji": "<:silver:1363233675566780576>",
       "medal": "🥈",
-      "division": "III",
-      "lp": 20,
+      "division": "IV",
+      "lp": 98,
       "win_streak": 0,
       "position": 2
     },
     {
       "name": "DZ De Norvège",
-      "rank": "Silver IV - 0 LP",
+      "rank": "Silver IV - 25 LP",
       "tier": "SILVER",
       "emoji": "<:silver:1363233675566780576>",
       "medal": "🥉",
       "division": "IV",
-      "lp": 0,
-      "win_streak": 0,
+      "lp": 25,
+      "win_streak": 1,
       "position": 3
     },
     {
@@ -47,50 +47,37 @@
   ],
   "last_games": {
     "midlaner agité": {
-      "champion": "Galio",
-      "kills": 6,
-      "deaths": 7,
-      "assists": 8,
+      "champion": "Thresh",
+      "kills": 0,
+      "deaths": 4,
+      "assists": 10,
       "win": false,
-      "kda": "2.00",
-      "cs": 160,
-      "damage": 17853,
-      "timestamp": 1745159600,
-      "champion_icon": "https://ddragon.leagueoflegends.com/cdn/14.8.1/img/champion/Galio.png",
-      "match_id": "EUW1_7374631043"
-    },
-    "DZ De Norvège": {
-      "champion": "Olaf",
-      "kills": 3,
-      "deaths": 14,
-      "assists": 5,
-      "win": false,
-      "kda": "0.57",
-      "cs": 130,
-      "damage": 17636,
-      "timestamp": 1745159608,
-      "champion_icon": "https://ddragon.leagueoflegends.com/cdn/14.8.1/img/champion/Olaf.png",
-      "match_id": "EUW1_7374631043"
+      "kda": "2.50",
+      "cs": 32,
+      "damage": 7260,
+      "timestamp": 1745161541,
+      "champion_icon": "https://ddragon.leagueoflegends.com/cdn/14.8.1/img/champion/Thresh.png",
+      "match_id": "EUW1_7375203621"
     }
   },
-  "updated_at": 1745159611,
+  "updated_at": 1745161540,
   "lp_history": {
     "sinistre": [
       {
         "date": "2025-04-20",
-        "lp": 41
+        "lp": 16
       }
     ],
     "midlaner agité": [
       {
         "date": "2025-04-20",
-        "lp": 20
+        "lp": 98
       }
     ],
     "DZ De Norvège": [
       {
         "date": "2025-04-20",
-        "lp": 0
+        "lp": 25
       }
     ],
     "wizaX28": [
