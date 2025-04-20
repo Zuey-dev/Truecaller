@@ -2,13 +2,13 @@
   "rankings": [
     {
       "name": "sinistre",
-      "rank": "Silver III - 39 LP",
+      "rank": "Silver III - 65 LP",
       "tier": "SILVER",
       "emoji": "<:silver:1363233675566780576>",
       "medal": "🥇",
       "division": "III",
-      "lp": 39,
-      "win_streak": 1,
+      "lp": 65,
+      "win_streak": 2,
       "position": 1
     },
     {
@@ -55,56 +55,17 @@
       "kda": "2.00",
       "cs": 160,
       "damage": 17853,
-      "timestamp": 1745153775,
+      "timestamp": 1745158100,
       "champion_icon": "https://ddragon.leagueoflegends.com/cdn/14.8.1/img/champion/Galio.png",
       "match_id": "EUW1_7374631043"
-    },
-    "DZ De Norvège": {
-      "champion": "Olaf",
-      "kills": 3,
-      "deaths": 14,
-      "assists": 5,
-      "win": false,
-      "kda": "0.57",
-      "cs": 130,
-      "damage": 17636,
-      "timestamp": 1745153778,
-      "champion_icon": "https://ddragon.leagueoflegends.com/cdn/14.8.1/img/champion/Olaf.png",
-      "match_id": "EUW1_7374631043"
-    },
-    "wizaX28": {
-      "champion": "Kindred",
-      "kills": 1,
-      "deaths": 5,
-      "assists": 4,
-      "win": false,
-      "kda": "1.00",
-      "cs": 78,
-      "damage": 5350,
-      "timestamp": 1745153781,
-      "champion_icon": "https://ddragon.leagueoflegends.com/cdn/14.8.1/img/champion/Kindred.png",
-      "match_id": "EUW1_7373573055"
-    },
-    "sinistre": {
-      "champion": "Draven",
-      "kills": 5,
-      "deaths": 4,
-      "assists": 6,
-      "win": true,
-      "kda": "2.75",
-      "cs": 141,
-      "damage": 14596,
-      "timestamp": 1745153906,
-      "champion_icon": "https://ddragon.leagueoflegends.com/cdn/14.8.1/img/champion/Draven.png",
-      "match_id": "EUW1_7374738254"
     }
   },
-  "updated_at": 1745153906,
+  "updated_at": 1745158102,
   "lp_history": {
     "sinistre": [
       {
         "date": "2025-04-20",
-        "lp": 39
+        "lp": 65
       }
     ],
     "midlaner agité": [
