@@ -4,6 +4,7 @@ import requests
 import time
 import datetime
 import threading
+import subprocess
 from dotenv import load_dotenv
 from sync_to_github import sync_to_github
 

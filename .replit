@@ -19,6 +19,7 @@ enabledForHosting = false
 [unitTest]
 language = "python3"
 
+[languages]
 [languages.python3]
 pattern = "**/*.py"
 syntax = "python"
