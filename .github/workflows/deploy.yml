@@ -1,0 +1,34 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'web/**'
+      - 'ranking.json'
+      - 'lp_history.json'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Setup Pages
+        uses: actions/configure-pages@v2
+        
+      - name: Copy files to deployment directory
+        run: |
+          mkdir -p ./deploy
+          cp -r web/* ./deploy/
+          cp ranking.json ./deploy/
+          cp lp_history.json ./deploy/
+      
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: './deploy'
+          
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v1

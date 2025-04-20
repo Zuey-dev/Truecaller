@@ -878,21 +878,29 @@ def track_players():
 def sync_to_github():
     """Synchronise les fichiers JSON avec le dépôt GitHub"""
     try:
-        # Vérifier si git est installé
-        subprocess.run(["git", "--version"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        # Configuration Git pour Replit
+        subprocess.run(["git", "config", "--global", "user.email", "bot@example.com"], check=True)
+        subprocess.run(["git", "config", "--global", "user.name", "LOL Bot"], check=True)
         
         # Fichiers à synchroniser
-        files_to_sync = ["ranking.json", "lp_history.json", "last_player_ranks.json"]
+        files_to_sync = ["ranking.json", "lp_history.json", "last_player_ranks.json", "web/ranking.json"]
         
         # Ajouter les fichiers modifiés
         subprocess.run(["git", "add"] + files_to_sync, check=True)
         
         # Créer un commit avec un message incluant l'horodatage
         commit_message = f"Mise à jour des données - {time.strftime('%Y-%m-%d %H:%M:%S')}"
-        subprocess.run(["git", "commit", "-m", commit_message], check=True)
+        subprocess.run(["git", "commit", "-m", commit_message], check=False)  # Ignorer les erreurs si rien à committer
+        
+        # Configurer l'authentification GitHub avec un token (à définir dans les secrets Replit)
+        github_token = os.getenv("GITHUB_TOKEN")
+        repo_url = os.getenv("GITHUB_REPO_URL", "https://github.com/username/lol-bot-discord.git")
+        if github_token:
+            auth_url = repo_url.replace("https://", f"https://{github_token}@")
+            subprocess.run(["git", "remote", "set-url", "origin", auth_url], check=True)
         
         # Pousser les modifications
-        subprocess.run(["git", "push"], check=True)
+        subprocess.run(["git", "push", "--force"], check=True)
         
         print("Synchronisation GitHub réussie")
         return True
@@ -902,21 +910,6 @@ def sync_to_github():
     except Exception as e:
         print(f"Erreur inattendue lors de la synchronisation GitHub: {e}")
         return False
-
-def keep_alive():
-    """Fonction pour maintenir le service actif"""
-    while True:
-        try:
-            # Faire une requête à votre propre service web toutes les 14 minutes
-            requests.get("https://lol-bot-discord.onrender.com")
-            print("Service pinged to keep alive")
-        except Exception as e:
-            print(f"Error pinging service: {e}")
-        time.sleep(14 * 60)  # 14 minutes
-
-# Démarrer le thread de maintien en vie
-import threading
-threading.Thread(target=keep_alive, daemon=True).start()
 
 if __name__ == "__main__":
     print("Bot lancé...")

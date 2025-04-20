@@ -104,6 +104,37 @@
         </div>
     
     <script>
+        // Fonction pour charger les données depuis GitHub Pages ou l'API locale
+        async function loadRankingData() {
+            try {
+                // Essayer d'abord l'URL GitHub Pages
+                const response = await fetch('https://username.github.io/lol-bot-discord/ranking.json');
+                if (response.ok) {
+                    return await response.json();
+                }
+                
+                // Fallback sur l'API locale
+                const localResponse = await fetch('/api/ranking');
+                if (localResponse.ok) {
+                    return await localResponse.json();
+                }
+                
+                throw new Error('Impossible de charger les données');
+            } catch (error) {
+                console.error('Erreur lors du chargement des données:', error);
+                return null;
+            }
+        }
+
+        // Utilisez cette fonction pour charger et afficher vos données
+        document.addEventListener('DOMContentLoaded', async () => {
+            const data = await loadRankingData();
+            if (data) {
+                // Code pour afficher les données dans votre interface
+                console.log('Données chargées avec succès:', data);
+            }
+        });
+
         // Mapping des emojis personnalisés vers les URLs des images
         const emojiImages = {
             "iron": "/img/iron.png",
